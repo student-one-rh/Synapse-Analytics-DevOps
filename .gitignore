@@ -1,0 +1,12 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/AdventureWorksDW.sqlproj.user
+/.vs
+/Import Schema Logs
+/obj/Debug
+/bin
+/*.dbmdl
+/*.
+/AdventureWorksDW.jfm

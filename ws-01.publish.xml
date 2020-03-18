@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseName>AdventureWorksDW</TargetDatabaseName>
+    <DeployScriptFileName>AdventureWorksDW.sql</DeployScriptFileName>
+    <TargetConnectionString>Data Source=sql-ws-01.database.windows.net;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Connect Timeout=60;Encrypt=True;TrustServerCertificate=False;Authentication="Active Directory Integrated"</TargetConnectionString>
+    <ProfileVersionNumber>1</ProfileVersionNumber>
+    <BlockOnPossibleDataLoss>False</BlockOnPossibleDataLoss>
+  </PropertyGroup>
+</Project>
