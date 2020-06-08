@@ -1,5 +1,5 @@
 # Synapse-Analytics-DevOps
-Sample build and release pipelines to automate schema changes with SQL Synapse SQL Pools (formery SQL DW). Using a YAML pipeline to build and a Classic DevOps pipeline to deploy.
+Sample build and release pipelines to automate schema changes with SQL Synapse SQL Pools (formery SQL DW). Using a YAML pipeline with two stages: one to build and one to deploy.
 
 To get it working on your environment, follow the steps below.
 ## Pre-requisites
@@ -39,6 +39,10 @@ You may be required to select your AzureDevOps account, and after this you will 
 
 Note that Azure DevOps recognized the standard name "azure-pipelines.yml" at the root of the repo. This file has a pipeline that essentially builds the database project and copies some scripts to the output area called "drop". The collection of files produced by this pipeline, the artifacts, will be referenced in the Release pipeline.  
 
+Create a variable to hold the password of your Synapse SQL Pool.
+
+Adjust the variables at the top of the YAML pipeline.
+
 Click "Run" to save and run this pipeline.  
 
 ![](images/2020-04-02-14-51-58.png)
@@ -48,8 +52,6 @@ Make sure your pipeline run is successful before you proceed:
 ![](images/2020-04-02-15-07-09.png)
 
 ## Clone the repository to your local machine
-
-You could leave this step for last if you download the "AdventureWorksDW-release-pipeline.json" to your local computer. This is the Classic pipeline definition we will use in the next section. 
 
 To start, go to the GitHub Repository you forked, click on the green button "Clone or Download" then copy the URL of the forked repository:
 
@@ -74,33 +76,5 @@ After a copy of the repository is downloaded to your machine, you can open the A
 Now select "Build" then "Build Solution" on the top menu and confirm that you can build your solution locally:
 
 ![](images/2020-04-02-15-51-24.png)
-
-
-
-
-## Import a deployment pipeline
-
-You will now import a Classic Pipeline, which another way to define a series of tasks, different from the text-based YAML standard used in the build pipeline you created earlier.
-
-To get started, click on "Releasese" under "Pipelines" on the left menu, then click on "New Pipeline"
-
-![](images/2020-04-02-15-12-04.png)
-
-Click on "Empty Job"
-
-![](images/2020-04-02-15-12-53.png)
-
-Save your empty job. You can save this pipeline at the root level "\":
-
-![](images/2020-04-02-15-59-34.png)
-
-
-
-Now click browse, then select the local folder where you cloned the forked repository into, then select the file "AdventureWorksDW-release-pipeline.json:
-
-![](images/2020-04-02-16-03-49.png)
-
-
-
 
 

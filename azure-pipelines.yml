@@ -1,7 +1,8 @@
-# .NET Desktop
-# Build and run tests for .NET Desktop or Windows classic desktop solutions.
-# Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
+# Synapse DevOps Demo
+# Pipeline that will 
+# 1. Build the SQL Server project stored in GitHub and generate a dacpac file for AdventureWorksDW
+# 2. Deploy dependent objects (Resource Group, Logical Server, SQL Pool)
+# 3. Deploy schema change
 
 trigger:
 - master
@@ -10,24 +11,134 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
+  # Adjust the variables below according to your environment
+  # This pipeline references a secret variable named ‘WarehouseAdminPassword’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab, and then select the option to make it secret. See https://go.microsoft.com/fwlink/?linkid=865972
+  AzureSubscription: 'Microsoft Azure Internal Consumption (fcdc11e4-fdf9-4620-9ec3-38a6a12ae89a)'
+  ResourceRegion: 'East US'
+  ResourceRegionShort: 'eastus'
+  WarehouseAdminUserName: 'sql.admin'
+  ResourceGroupNamePrefix: 'modern-data'
+  WarehouseServerNamePrefix: 'sql'
+  RandomComponent: '0851' # This number will guarantee uniqueness for resources within Azure. Change it if you see "Resource Already Exists errors"
+  WarehouseDatabaseName: 'AdventureWorksDW'
+
+  # The variables below will typically not need adjustment
+  # Environment.Name is defifined by the environment in each deployment stage
+  WarehouseServerName: '$(WarehouseServerNamePrefix)-$(RandomComponent)-$(Environment.Name)'
+  WarehouseServerFqdn: '$(WarehouseServerName).database.windows.net'
+  ResourceGroupName: '$(ResourceGroupNamePrefix)-$(RandomComponent)-$(Environment.Name)'
+  WarehouseSkuName: 'DataWarehouse'
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
 
-steps:
-- task: NuGetToolInstaller@1
+stages: 
+- stage: Build
+  jobs:
+  - job: BuildAndPublish
+    steps:
+    - task: NuGetToolInstaller@1
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+    # Make the build output available for the next pipeline stages
+    - publish: '$(System.DefaultWorkingDirectory)/bin/Release'
+      artifact: drop
 
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
-
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
-
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(System.DefaultWorkingDirectory)/bin/Release'
-    ArtifactName: 'drop'
+- stage: Dev
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  #  Using deployment instead of job to track deployments on the environment.
+  - deployment: DeployToDev
+    displayName: deploy AdventureWorksDW to Dev
+    pool:
+      vmImage: 'windows-latest'
+    # creates an environment if it doesn't exist
+    environment: 'dev'
+    strategy:
+      # default deployment strategy
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureResourceGroupDeployment@2
+            displayName: 'Deploy Logical Server'
+            inputs:
+              azureSubscription: $(AzureSubscription)
+              resourceGroupName: '$(ResourceGroupName)'
+              location: '$(ResourceRegion)'
+              csmFile: '$(Pipeline.Workspace)/drop/ArmTemplates/SqlServer/azuredeploy.json'
+              csmParametersFile: '$(Pipeline.Workspace)/drop/ArmTemplates/SqlServer/azuredeploy.parameters.json'
+              overrideParameters: '-serverName $(WarehouseServerName) -administratorLogin $(WarehouseAdminUserName) -administratorLoginPassword $(WarehouseAdminPassword) -enableADS false -allowAzureIPs true -connectionType "Default" -location "$(ResourceRegionShort)"'
+          - task: AzurePowerShell@4
+            displayName: 'Resume Provisioned SQL Pool if it Exists'
+            inputs:
+              azureSubscription: $(AzureSubscription)
+              ScriptType: InlineScript
+              preferredAzurePowerShellVersion: 3.1.0
+              errorActionPreference: silentlyContinue
+              Inline: |
+                # Inline azure powershell scripts below. 
+                Resume-AzSqlDatabase –ResourceGroupName "$(ResourceGroupName)" –ServerName "$(WarehouseServerName)" -DatabaseName "$(WarehouseDatabaseName)"
+          - task: AzureResourceGroupDeployment@2
+            displayName: 'Deploy Provisioned SQL Pool'
+            inputs:
+              azureSubscription: $(AzureSubscription)
+              resourceGroupName: '$(ResourceGroupName)'
+              location: '$(ResourceRegion)'
+              csmFile: '$(Pipeline.Workspace)/drop/ArmTemplates/SqlPool/template.json'
+              csmParametersFile: '$(Pipeline.Workspace)/drop/ArmTemplates/SqlServer/azuredeploy.parameters.json'
+              overrideParameters: '-administratorLogin $(WarehouseAdminUserName) -administratorLoginPassword $(WarehouseAdminPassword) -databaseName $(WarehouseDatabaseName) -skuName $(WarehouseSkuName) -location $(ResourceRegionShort) -serverName $(WarehouseServerName) -version 12.0 -collation SQL_Latin1_General_CP1_CI_AS -allowAzureIps true -databaseTags {} -serverTags {}'
+          - task: AzurePowerShell@4
+            displayName: 'Create Point in Time Restore'
+            inputs:
+              azureSubscription: '$(AzureSubscription)'
+              ScriptType: InlineScript
+              preferredAzurePowerShellVersion: 3.1.0
+              Inline: |
+                # Inline azure powershell scripts below. 
+                New-AzSqlDatabaseRestorePoint -ResourceGroupName "$(ResourceGroupName)" -ServerName "$(WarehouseServerName)" -DatabaseName "$(WarehouseDatabaseName)" -RestorePointLabel "Release-$(Build.BuildId)-RestorePoint"
+          - task: SqlAzureDataWarehouseDacpacDeployment@1
+            displayName: 'Run Pre-Compare Scripts'          
+            inputs:
+              azureSubscription: '$(AzureSubscription)'
+              AuthenticationType: 'server'
+              ServerName: '$(WarehouseServerFqdn)'
+              DataWarehouse: '$(WarehouseDatabaseName)'
+              SqlUsername: '$(WarehouseAdminUserName)'
+              SqlPassword: '$(WarehouseAdminPassword)'
+              deployType: 'SqlTask'
+              SqlFile: '$(Pipeline.Workspace)/drop/Scripts/PreCompareMain.sql'
+              SqlAdditionalArguments: '-v ScriptsBasePath="$(Pipeline.Workspace)/drop/Scripts/" -Verbose'
+              IpDetectionMethod: 'AutoDetect'
+          - task: SqlAzureDataWarehouseDacpacDeployment@1
+            displayName: 'Deploy dacpac (schema changes)'
+            inputs:
+              azureSubscription: '$(AzureSubscription)'
+              AuthenticationType: 'server'
+              ServerName: '$(WarehouseServerFqdn)'
+              DataWarehouse: '$(WarehouseDatabaseName)'
+              SqlUsername: '$(WarehouseAdminUserName)'
+              SqlPassword: '$(WarehouseAdminPassword)'
+              deployType: 'DacpacTask'
+              DeploymentAction: 'Publish'
+              DacpacFile: '$(Pipeline.Workspace)/drop/$(WarehouseDatabaseName).dacpac'
+              AdditionalArguments: '/p:BlockOnPossibleDataLoss=False /p:ExcludeObjectTypes=Logins;Users;Permissions;RoleMembership'
+              IpDetectionMethod: 'AutoDetect'
+          - task: AzurePowerShell@4
+            displayName: 'Pause Provisioned SQL Pool'
+            enabled: false
+            inputs:
+              azureSubscription: '$(AzureSubscription)'
+              ScriptType: InlineScript
+              preferredAzurePowerShellVersion: 3.1.0
+              Inline: |
+                # Inline azure powershell scripts below. 
+                Suspend-AzSqlDatabase  –ResourceGroupName "$(ResourceGroupName)" –ServerName "$(WarehouseServerName)" -DatabaseName "$(WarehouseDatabaseName)"
