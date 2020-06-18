@@ -18,7 +18,7 @@ parameters:
   - name: WarehouseAdminPassword
     default: 'XitakeWhom659852641'
   - name: AzureSubscription
-    default: 'Azure subscription 1 (3cf0fc2f-5bbd-4de7-a3a2-ea1ef826dd4e)'
+    default: 'Service Connection to Azure Subscription'
   - name: ResourceRegion
     default: 'East US'
   - name: ResourceRegionShort
