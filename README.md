@@ -1,15 +1,15 @@
 # Synapse-Analytics-DevOps
-Sample build and release pipelines to automate schema changes with SQL Synapse SQL Pools (formery SQL DW). Using a YAML pipeline with two stages: one to build and one to deploy.
+Sample build and release pipelines to automate schema changes with SQL Synapse SQL Pools (formery SQL DW). Using a YAML pipeline with tthree stages: (1) Build (2) Deploy to a Development environment and (3) Deploy to a QA environment.
 
 To get it working on your environment, follow the steps below.
 ## Pre-requisites
 
-In summary you will need a GitHub Account, an Azure DevOps account, your own copy of this repo, and an Azure DevOps Project.
+In summary you will need a GitHub Account, an Azure DevOps account, your own copy of this repo, and an Azure DevOps Project. The steps for pre-requisite setup: 
 
 1. [Sign up](https://help.github.com/en/github/getting-started-with-github/signing-up-for-a-new-github-account) or sign in to GitHub. 
 2. Make sure you are signed in to your GitHub account, then go to https://github.com/rodrigo-m/Synapse-Analytics-DevOps (this repo) and click "Fork" on the top right to [create a copy of this repository](https://guides.github.com/activities/forking/) in your account.  
 2. [Sign up or sign in to Azure DevOps](https://docs.microsoft.com/en-us/azure/devops/user-guide/sign-up-invite-teammates?view=azure-devops).
-3. [Create a project](https://docs.microsoft.com/en-us/azure/devops/organizations/projects/create-project?view=azure-devops&tabs=preview-page) in Azure DevOps. Select Git as your source control on step 3. 
+3. [Create a project](https://docs.microsoft.com/en-us/azure/devops/organizations/projects/create-project?view=azure-devops&tabs=preview-page) in Azure DevOps. Select GitHub as your source control on step 3. 
 
 ## Create a Build Pipeline (YAML)
 
