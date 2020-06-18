@@ -2,7 +2,7 @@
 # Purpose of this Pipeline: 
 # 1. Build the SQL Server project stored in GitHub and generate a dacpac file for AdventureWorksDW
 # 2. Deploy dependent objects (Resource Group, Logical Server, SQL Pool)
-# 3. Deploy schema change
+# 3. Deploy schema change.
 
 trigger:
 - master
